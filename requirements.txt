@@ -1,0 +1,6 @@
+yfinance==0.2.37
+pandas==2.2.1
+SQLAlchemy==2.0.28
+APScheduler==3.10.4
+streamlit==1.32.2
+plotly==5.20.0
