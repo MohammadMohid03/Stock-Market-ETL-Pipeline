@@ -1,10 +1,16 @@
 import pandas as pd
 from sqlalchemy import create_engine
-from utils.logger import setup_logger
+import os
 
 logger = setup_logger("LoadModule")
 
-def load_data(df: pd.DataFrame, db_name: str = "sqlite:///stock_data.db", table_name: str = "stock_metrics", if_exists: str = "replace") -> bool:
+# Default local database, overridden by environment variable in production
+DEFAULT_DB_URL = os.environ.get("DATABASE_URL", "sqlite:///stock_data.db")
+# SQLAlchemy 1.4+ requires postgresql:// instead of postgres://, which is often what Render provides
+if DEFAULT_DB_URL.startswith("postgres://"):
+    DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
+
+def load_data(df: pd.DataFrame, db_name: str = DEFAULT_DB_URL, table_name: str = "stock_metrics", if_exists: str = "replace") -> bool:
     """
     Loads the validated dataframe into a SQLite database.
     

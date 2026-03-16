@@ -15,7 +15,12 @@ logger = setup_logger("MainPipeline")
 DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
 PERIOD = "1y" # Fetch 1 year of data
 
-def get_tracked_tickers(db_path="sqlite:///stock_data.db"):
+# Default local database, overridden by environment variable in production
+DEFAULT_DB_URL = os.environ.get("DATABASE_URL", "sqlite:///stock_data.db")
+if DEFAULT_DB_URL.startswith("postgres://"):
+    DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
+
+def get_tracked_tickers(db_path=DEFAULT_DB_URL):
     """Fetch distinct tickers currently in the database to keep them updated."""
     try:
         from sqlalchemy import create_engine, text

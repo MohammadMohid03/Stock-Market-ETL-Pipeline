@@ -1,0 +1,30 @@
+services:
+  # Streamlit Dashboard (Web Service)
+  - type: web
+    name: stock-market-dashboard
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run dashboard/app.py --server.port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-market-db
+          property: connectionString
+
+  # ETL Pipeline Scheduler (Background Worker)
+  - type: worker
+    name: stock-market-etl-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stock-market-db
+          property: connectionString
+
+databases:
+  # PostgreSQL Database
+  - name: stock-market-db
+    databaseName: stock_db
+    user: stock_user

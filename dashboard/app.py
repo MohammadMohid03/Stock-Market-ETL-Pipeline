@@ -11,19 +11,23 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 st.set_page_config(page_title="Stock Market Dashboard", layout="wide", page_icon="📈")
 
-# Database connection
-DB_PATH = "stock_data.db"
+# Database connection via SQLAlchemy
+DEFAULT_DB_URL = os.environ.get("DATABASE_URL", "sqlite:///stock_data.db")
+if DEFAULT_DB_URL.startswith("postgres://"):
+    DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
 
 @st.cache_data(ttl=3600) # Cache data for 1 hour to prevent constant DB hits
 def load_data_from_db():
-    if not os.path.exists(DB_PATH):
-        return pd.DataFrame()
-        
     try:
-        conn = sqlite3.connect(DB_PATH)
+        from sqlalchemy import create_engine
+        engine = create_engine(DEFAULT_DB_URL)
+        
+        # If it's a local SQLite file, ensure it exists before querying
+        if DEFAULT_DB_URL.startswith("sqlite") and not os.path.exists(DEFAULT_DB_URL.replace("sqlite:///", "")):
+             return pd.DataFrame()
+             
         query = "SELECT * FROM stock_metrics"
-        df = pd.read_sql(query, conn)
-        conn.close()
+        df = pd.read_sql(query, engine)
         
         # Ensure Date is parsed correctly
         if not df.empty and 'Date' in df.columns:
