@@ -16,6 +16,8 @@ DEFAULT_DB_URL = os.environ.get("DATABASE_URL", "sqlite:///stock_data.db")
 if DEFAULT_DB_URL.startswith("postgres://"):
     DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
 
+DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
+
 @st.cache_data(ttl=3600) # Cache data for 1 hour to prevent constant DB hits
 def load_data_from_db():
     try:
@@ -38,6 +40,31 @@ def load_data_from_db():
         st.error(f"Error loading data from database: {e}")
         return pd.DataFrame()
 
+def run_initial_etl_bootstrap() -> tuple[bool, str]:
+    """Run a one-time ETL load so hosted deployments have starter data."""
+    try:
+        from etl.extract import fetch_stock_data
+        from etl.transform import clean_data, transform_stock_data
+        from etl.validation import validate_data
+        from etl.load import load_data
+
+        raw_data = fetch_stock_data(DEFAULT_TICKERS, period="1y")
+        if raw_data.empty:
+            return False, "Initial data load failed: no data returned from Yahoo Finance."
+
+        cleaned_data = clean_data(raw_data)
+        transformed_data = transform_stock_data(cleaned_data)
+        if not validate_data(transformed_data):
+            return False, "Initial data load failed during validation."
+
+        success = load_data(transformed_data, if_exists="replace")
+        if not success:
+            return False, "Initial data load failed while writing to the database."
+
+        return True, "Initial dataset loaded successfully."
+    except Exception as e:
+        return False, f"Initial data load failed: {e}"
+
 # Load DB Data
 st.title("📈 Stock Market ETL Pipeline Dashboard")
 st.markdown("This dashboard pulls transformed stock data from the local SQLite database.")
@@ -45,7 +72,28 @@ st.markdown("This dashboard pulls transformed stock data from the local SQLite d
 df = load_data_from_db()
 
 if df.empty:
-    st.warning("No data found in the database. Please run the ETL pipeline first (`python main.py`).")
+    # Run once automatically per browser session for first-time hosted deployments.
+    if not st.session_state.get("initial_bootstrap_attempted", False):
+        st.session_state["initial_bootstrap_attempted"] = True
+        with st.spinner("No data found. Running initial ETL bootstrap..."):
+            bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
+        if bootstrap_success:
+            st.cache_data.clear()
+            st.success(bootstrap_message)
+            st.rerun()
+        else:
+            st.error(bootstrap_message)
+
+    st.warning("No data found in the database.")
+    if st.button("Run Initial Data Load"):
+        with st.spinner("Running initial ETL bootstrap..."):
+            bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
+        if bootstrap_success:
+            st.cache_data.clear()
+            st.success(bootstrap_message)
+            st.rerun()
+        else:
+            st.error(bootstrap_message)
 else:
     # --- Add New Ticker Section ---
     st.sidebar.header("Add New Stock")

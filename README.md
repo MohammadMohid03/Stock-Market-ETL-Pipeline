@@ -60,3 +60,23 @@ streamlit run dashboard/app.py
 ```
 
 This will start a local web server (usually at `http://localhost:8501`) where you can view the stock trends.
+
+## Streamlit Cloud Deployment
+
+If deployment fails while installing dependencies, it is usually a Python-version-to-wheel mismatch (for example, when pandas/numpy wheels are not available for the selected runtime).
+
+This project is configured for Streamlit Cloud with:
+
+*   `runtime.txt` set to Python 3.11.11.
+*   Pinned versions in `requirements.txt` that provide prebuilt wheels on Linux.
+
+Use these Streamlit Cloud settings:
+
+*   **Main file path:** `dashboard/app.py`
+*   **Python version:** automatically read from `runtime.txt`
+
+After deploy:
+
+*   The app uses a local SQLite file by default (`stock_data.db`).
+*   On Streamlit Cloud, local files are ephemeral and may reset on restart/redeploy.
+*   For persistence, set `DATABASE_URL` to a managed Postgres instance in Streamlit Secrets.
