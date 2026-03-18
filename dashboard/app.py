@@ -1,10 +1,15 @@
 import streamlit as st
 import pandas as pd
 import sqlite3
-import plotly.express as px
-import plotly.graph_objects as go
 import os
 import sys
+
+try:
+    import plotly.express as px
+    import plotly.graph_objects as go
+    HAS_PLOTLY = True
+except ModuleNotFoundError:
+    HAS_PLOTLY = False
 
 # Ensure the root folder is in the path to import utils (if needed)
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -95,6 +100,9 @@ if df.empty:
         else:
             st.error(bootstrap_message)
 else:
+    if not HAS_PLOTLY:
+        st.info("Plotly is not installed in this environment. Falling back to native Streamlit charts.")
+
     # --- Add New Ticker Section ---
     st.sidebar.header("Add New Stock")
     new_ticker = st.sidebar.text_input("Enter Ticker (e.g., NFLX, META)").upper().strip()
@@ -179,8 +187,12 @@ else:
         
         # Line Chart: Closing Prices over time
         st.subheader("Closing Prices Over Time")
-        fig_close = px.line(filtered_df, x='Date', y='Close', color='Ticker', title="Stock Closing Prices")
-        st.plotly_chart(fig_close, use_container_width=True)
+        if HAS_PLOTLY:
+            fig_close = px.line(filtered_df, x='Date', y='Close', color='Ticker', title="Stock Closing Prices")
+            st.plotly_chart(fig_close, use_container_width=True)
+        else:
+            close_chart_df = filtered_df.pivot(index='Date', columns='Ticker', values='Close').sort_index()
+            st.line_chart(close_chart_df)
         
         # Moving Averages View for a single selected ticker
         st.subheader("Moving Averages Analysis")
@@ -188,18 +200,26 @@ else:
         
         if ma_ticker:
             ma_df = filtered_df[filtered_df['Ticker'] == ma_ticker]
-            fig_ma = go.Figure()
-            fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['Close'], mode='lines', name='Close Price', opacity=0.8))
-            fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['MA_7_Days'], mode='lines', name='7-Day MA', opacity=0.6))
-            fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['MA_30_Days'], mode='lines', name='30-Day MA', opacity=0.6))
-            fig_ma.update_layout(title=f"{ma_ticker} - Price vs Moving Averages", xaxis_title="Date", yaxis_title="Price ($)")
-            st.plotly_chart(fig_ma, use_container_width=True)
+            if HAS_PLOTLY:
+                fig_ma = go.Figure()
+                fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['Close'], mode='lines', name='Close Price', opacity=0.8))
+                fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['MA_7_Days'], mode='lines', name='7-Day MA', opacity=0.6))
+                fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['MA_30_Days'], mode='lines', name='30-Day MA', opacity=0.6))
+                fig_ma.update_layout(title=f"{ma_ticker} - Price vs Moving Averages", xaxis_title="Date", yaxis_title="Price ($)")
+                st.plotly_chart(fig_ma, use_container_width=True)
+            else:
+                ma_chart_df = ma_df.set_index('Date')[['Close', 'MA_7_Days', 'MA_30_Days']].sort_index()
+                st.line_chart(ma_chart_df)
             
         # Volatility Bar Chart
         st.subheader("Stock Volatility (30-Day Rolling Std Dev)")
         # Plot volatility over time
-        fig_vol = px.line(filtered_df, x='Date', y='Volatility_30_Days', color='Ticker', title="30-Day Volatility Tracking")
-        st.plotly_chart(fig_vol, use_container_width=True)
+        if HAS_PLOTLY:
+            fig_vol = px.line(filtered_df, x='Date', y='Volatility_30_Days', color='Ticker', title="30-Day Volatility Tracking")
+            st.plotly_chart(fig_vol, use_container_width=True)
+        else:
+            vol_chart_df = filtered_df.pivot(index='Date', columns='Ticker', values='Volatility_30_Days').sort_index()
+            st.line_chart(vol_chart_df)
         
         # View Raw Data Toggle
         if st.checkbox("Show Raw Transformed Data"):
