@@ -1,6 +1,6 @@
 import pandas as pd
-from sqlalchemy import create_engine
 import os
+import sqlite3
 from utils.logger import setup_logger
 
 logger = setup_logger("LoadModule")
@@ -27,10 +27,14 @@ def load_data(df: pd.DataFrame, db_name: str = DEFAULT_DB_URL, table_name: str =
     logger.info(f"Starting data load into '{db_name}', table: '{table_name}'.")
     
     try:
-        # Create a database engine
-        engine = create_engine(db_name)
-        
-        df.to_sql(table_name, con=engine, if_exists=if_exists, index=False)
+        if db_name.startswith("sqlite"):
+            db_path = db_name.replace("sqlite:///", "", 1)
+            with sqlite3.connect(db_path) as conn:
+                df.to_sql(table_name, con=conn, if_exists=if_exists, index=False)
+        else:
+            from sqlalchemy import create_engine
+            engine = create_engine(db_name)
+            df.to_sql(table_name, con=engine, if_exists=if_exists, index=False)
         
         logger.info(f"Successfully loaded {len(df)} records into the database.")
         return True

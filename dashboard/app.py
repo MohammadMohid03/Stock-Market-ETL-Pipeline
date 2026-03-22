@@ -26,15 +26,19 @@ DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
 @st.cache_data(ttl=3600) # Cache data for 1 hour to prevent constant DB hits
 def load_data_from_db():
     try:
-        from sqlalchemy import create_engine
-        engine = create_engine(DEFAULT_DB_URL)
-        
         # If it's a local SQLite file, ensure it exists before querying
         if DEFAULT_DB_URL.startswith("sqlite") and not os.path.exists(DEFAULT_DB_URL.replace("sqlite:///", "")):
              return pd.DataFrame()
              
         query = "SELECT * FROM stock_metrics"
-        df = pd.read_sql(query, engine)
+        if DEFAULT_DB_URL.startswith("sqlite"):
+            db_path = DEFAULT_DB_URL.replace("sqlite:///", "", 1)
+            with sqlite3.connect(db_path) as conn:
+                df = pd.read_sql_query(query, conn)
+        else:
+            from sqlalchemy import create_engine
+            engine = create_engine(DEFAULT_DB_URL)
+            df = pd.read_sql(query, engine)
         
         # Ensure Date is parsed correctly
         if not df.empty and 'Date' in df.columns:
