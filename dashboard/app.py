@@ -108,9 +108,6 @@ if df.empty:
         else:
             st.error(bootstrap_message)
 else:
-    if not HAS_PLOTLY:
-        st.info("Plotly is not installed in this environment. Falling back to native Streamlit charts.")
-
     # --- Add New Ticker Section ---
     st.sidebar.header("Add New Stock")
     new_ticker = st.sidebar.text_input("Enter Ticker (e.g., NFLX, META)").upper().strip()
