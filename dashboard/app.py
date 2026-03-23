@@ -22,6 +22,8 @@ if DEFAULT_DB_URL.startswith("postgres://"):
     DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
 
 DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
+INITIAL_BOOTSTRAP_PERIOD = "3mo"
+MAX_POINTS_PER_TICKER = 180
 
 @st.cache_data(ttl=3600) # Cache data for 1 hour to prevent constant DB hits
 def load_data_from_db():
@@ -46,8 +48,21 @@ def load_data_from_db():
             
         return df
     except Exception as e:
+        if "no such table" in str(e).lower():
+            return pd.DataFrame()
         st.error(f"Error loading data from database: {e}")
         return pd.DataFrame()
+
+def _limit_points_per_ticker(df: pd.DataFrame, max_points: int = MAX_POINTS_PER_TICKER) -> pd.DataFrame:
+    """Limit chart data points per ticker to keep rendering fast on Streamlit Cloud."""
+    if df.empty or "Ticker" not in df.columns or "Date" not in df.columns:
+        return df
+    return (
+        df.sort_values(by=["Ticker", "Date"]) 
+          .groupby("Ticker", group_keys=False)
+          .tail(max_points)
+          .reset_index(drop=True)
+    )
 
 def run_initial_etl_bootstrap() -> tuple[bool, str]:
     """Run a one-time ETL load so hosted deployments have starter data."""
@@ -57,7 +72,7 @@ def run_initial_etl_bootstrap() -> tuple[bool, str]:
         from etl.validation import validate_data
         from etl.load import load_data
 
-        raw_data = fetch_stock_data(DEFAULT_TICKERS, period="1y")
+        raw_data = fetch_stock_data(DEFAULT_TICKERS, period=INITIAL_BOOTSTRAP_PERIOD)
         if raw_data.empty:
             return False, "Initial data load failed: no data returned from Yahoo Finance."
 
@@ -81,19 +96,8 @@ st.markdown("This dashboard pulls transformed stock data from the local SQLite d
 df = load_data_from_db()
 
 if df.empty:
-    # Run once automatically per browser session for first-time hosted deployments.
-    if not st.session_state.get("initial_bootstrap_attempted", False):
-        st.session_state["initial_bootstrap_attempted"] = True
-        with st.spinner("No data found. Running initial ETL bootstrap..."):
-            bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
-        if bootstrap_success:
-            st.cache_data.clear()
-            st.success(bootstrap_message)
-            st.rerun()
-        else:
-            st.error(bootstrap_message)
-
     st.warning("No data found in the database.")
+    st.info("Run the initial data load once, then the dashboard will become responsive.")
     if st.button("Run Initial Data Load"):
         with st.spinner("Running initial ETL bootstrap..."):
             bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
@@ -167,6 +171,8 @@ else:
         ]
     else:
         filtered_df = df[df['Ticker'].isin(selected_tickers)]
+
+    chart_df = _limit_points_per_ticker(filtered_df)
         
     # Main Metrics Summary
     st.subheader("Summary Metrics (Last Available Trading Day)")
@@ -192,10 +198,10 @@ else:
         # Line Chart: Closing Prices over time
         st.subheader("Closing Prices Over Time")
         if HAS_PLOTLY:
-            fig_close = px.line(filtered_df, x='Date', y='Close', color='Ticker', title="Stock Closing Prices")
+            fig_close = px.line(chart_df, x='Date', y='Close', color='Ticker', title="Stock Closing Prices")
             st.plotly_chart(fig_close, use_container_width=True)
         else:
-            close_chart_df = filtered_df.pivot(index='Date', columns='Ticker', values='Close').sort_index()
+            close_chart_df = chart_df.pivot(index='Date', columns='Ticker', values='Close').sort_index()
             st.line_chart(close_chart_df)
         
         # Moving Averages View for a single selected ticker
@@ -203,7 +209,7 @@ else:
         ma_ticker = st.selectbox("Select Ticker for MA Analysis", selected_tickers)
         
         if ma_ticker:
-            ma_df = filtered_df[filtered_df['Ticker'] == ma_ticker]
+            ma_df = chart_df[chart_df['Ticker'] == ma_ticker]
             if HAS_PLOTLY:
                 fig_ma = go.Figure()
                 fig_ma.add_trace(go.Scatter(x=ma_df['Date'], y=ma_df['Close'], mode='lines', name='Close Price', opacity=0.8))
@@ -219,10 +225,10 @@ else:
         st.subheader("Stock Volatility (30-Day Rolling Std Dev)")
         # Plot volatility over time
         if HAS_PLOTLY:
-            fig_vol = px.line(filtered_df, x='Date', y='Volatility_30_Days', color='Ticker', title="30-Day Volatility Tracking")
+            fig_vol = px.line(chart_df, x='Date', y='Volatility_30_Days', color='Ticker', title="30-Day Volatility Tracking")
             st.plotly_chart(fig_vol, use_container_width=True)
         else:
-            vol_chart_df = filtered_df.pivot(index='Date', columns='Ticker', values='Volatility_30_Days').sort_index()
+            vol_chart_df = chart_df.pivot(index='Date', columns='Ticker', values='Volatility_30_Days').sort_index()
             st.line_chart(vol_chart_df)
         
         # View Raw Data Toggle
