@@ -144,11 +144,23 @@ else:
     # Ticker Filter
     tickers = df['Ticker'].unique().tolist()
     selected_tickers = st.sidebar.multiselect("Select Tickers to View", tickers, default=tickers)
+    import pandas as pd
+    import datetime
     
     # Date Range Filter
-    min_date = df['Date'].min()
     max_date = df['Date'].max()
-    date_range = st.sidebar.date_input("Select Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date)
+    
+    # Set default start date to Jan 1, 2010 (or the earliest available if the data starts after 2010)
+    desired_start_date = pd.to_datetime('2010-01-01')
+    actual_min_date = df['Date'].min()
+    default_start_date = desired_start_date if desired_start_date >= actual_min_date else actual_min_date
+    
+    date_range = st.sidebar.date_input(
+        "Select Date Range", 
+        value=(default_start_date, max_date), 
+        min_value=actual_min_date, 
+        max_value=max_date
+    )
     
     # Filter Data
     if len(date_range) == 2:
