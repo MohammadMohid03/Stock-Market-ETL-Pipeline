@@ -150,8 +150,8 @@ else:
     # Date Range Filter
     max_date = df['Date'].max()
     
-    # Set default start date to Jan 1, 2010 (or the earliest available if the data starts after 2010)
-    desired_start_date = pd.to_datetime('2010-01-01')
+    # Set default start date to Jan 1, 2024 to prevent dashboard lagging from too much data
+    desired_start_date = pd.to_datetime('2024-01-01')
     actual_min_date = df['Date'].min()
     default_start_date = desired_start_date if desired_start_date >= actual_min_date else actual_min_date
     
