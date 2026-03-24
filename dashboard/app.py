@@ -165,7 +165,8 @@ else:
     else:
         filtered_df = df[df['Ticker'].isin(selected_tickers)]
 
-    chart_df = _limit_points_per_ticker(filtered_df)
+    # Use the filtered data directly for charts to respect the date filter
+    chart_df = filtered_df
         
     # Main Metrics Summary
     st.subheader("Summary Metrics (Last Available Trading Day)")
