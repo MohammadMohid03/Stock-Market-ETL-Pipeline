@@ -22,7 +22,7 @@ if DEFAULT_DB_URL.startswith("postgres://"):
     DEFAULT_DB_URL = DEFAULT_DB_URL.replace("postgres://", "postgresql://", 1)
 
 DEFAULT_TICKERS = ["AAPL", "GOOGL", "MSFT", "AMZN", "TSLA"]
-INITIAL_BOOTSTRAP_PERIOD = "3mo"
+INITIAL_BOOTSTRAP_PERIOD = "1mo"
 MAX_POINTS_PER_TICKER = 180
 
 @st.cache_data(ttl=3600) # Cache data for 1 hour to prevent constant DB hits
@@ -96,17 +96,13 @@ st.markdown("This dashboard pulls transformed stock data from the local SQLite d
 df = load_data_from_db()
 
 if df.empty:
-    st.warning("No data found in the database.")
-    st.info("Run the initial data load once, then the dashboard will become responsive.")
-    if st.button("Run Initial Data Load"):
-        with st.spinner("Running initial ETL bootstrap..."):
-            bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
+    with st.spinner("Initializing dashboard with latest market data (takes ~5 seconds)..."):
+        bootstrap_success, bootstrap_message = run_initial_etl_bootstrap()
         if bootstrap_success:
             st.cache_data.clear()
-            st.success(bootstrap_message)
             st.rerun()
         else:
-            st.error(bootstrap_message)
+            st.error(f"Initialization failed: {bootstrap_message}. Please check logs.")
 else:
     # --- Add New Ticker Section ---
     st.sidebar.header("Add New Stock")
