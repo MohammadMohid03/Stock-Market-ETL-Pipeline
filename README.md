@@ -1,6 +1,6 @@
 # Stock Market ETL Pipeline
 
-**Live Dashboard:** [View on Streamlit Cloud](https://your-streamlit-app-url-goes-here.streamlit.app/)
+**Live Dashboard:** [View on Streamlit Cloud](https://stock-market-etl-pipeline.streamlit.app)
 
 This project is a complete Extract, Transform, Load (ETL) pipeline that pulls historical stock data from Yahoo Finance, transforms it to add moving averages and volatility scores, and loads it into a SQLite database. The pipeline is scheduled to run automatically, and a Streamlit dashboard visualizes the stock trends.
 
